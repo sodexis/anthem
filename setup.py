@@ -16,7 +16,7 @@ setup(
     license="LGPLv3+",
     packages=find_packages(exclude=("tests", "docs")),
     entry_points={"console_scripts": ["anthem = anthem.cli:main"]},
-    install_requires=["future", "unicodecsv"],
+    install_requires=[ "unicodecsv"],
     setup_requires=[
         "setuptools_scm",
     ],
