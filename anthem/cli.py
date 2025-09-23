@@ -15,6 +15,7 @@ from anthem import __version__ as anthem_version
 
 try:
     import odoo
+    import odoo.service
     from odoo.api import Environment
 
     odoo_logger = "odoo"
@@ -149,10 +150,14 @@ class Context:
         # On saas versions this will be "saas-XX" where XX is the odoo version
         if not isinstance(odoo_version, int):
             odoo_version = int(odoo_version.lstrip(string.ascii_letters + "-~"))
-        if odoo_version > 9:
+        if odoo_version <= 9:
+            registry = odoo.modules.registry.RegistryManager.get(dbname)
+        if odoo_version < 19:
             registry = odoo.modules.registry.Registry(dbname)
         else:
-            registry = odoo.modules.registry.RegistryManager.get(dbname)
+            # Since 19, odoo supports multi databases and it now returns
+            # list of databases.
+            registry = odoo.modules.registry.Registry(dbname[0])
         cr = registry.cursor()
         uid = odoo.SUPERUSER_ID
         if odoo_version < 15:
