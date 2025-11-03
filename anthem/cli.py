@@ -154,9 +154,9 @@ class Context:
             odoo_version = int(odoo_version.lstrip(string.ascii_letters + "-~"))
         if odoo_version <= 9:
             registry = odoo.modules.registry.RegistryManager.get(dbname)
-        if odoo_version < 18:
+        elif odoo_version < 18:
             registry = odoo.modules.registry.Registry(dbname)
-        if odoo_version == 18 and not is_saas:
+        elif odoo_version == 18 and not is_saas:
             registry = odoo.modules.registry.Registry(dbname)
         elif odoo_version == 18 and is_saas:  # multi DB returned for sass~18.2
             registry = odoo.modules.registry.Registry(dbname[0])
