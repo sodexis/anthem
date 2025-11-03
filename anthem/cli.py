@@ -147,17 +147,18 @@ class Context:
         # Restore the default one.
         signal.signal(signal.SIGINT, signal.default_int_handler)
         odoo_version = odoo.release.version_info[0]
-        is_sass = True if 'saas' in odoo_version else False
         # On saas versions this will be "saas-XX" where XX is the odoo version
+        is_saas = False
         if not isinstance(odoo_version, int):
+            is_saas = 'saas' in odoo_version.lower()
             odoo_version = int(odoo_version.lstrip(string.ascii_letters + "-~"))
         if odoo_version <= 9:
             registry = odoo.modules.registry.RegistryManager.get(dbname)
         if odoo_version < 18:
             registry = odoo.modules.registry.Registry(dbname)
-        if odoo_version == 18 and not is_sass:
+        if odoo_version == 18 and not is_saas:
             registry = odoo.modules.registry.Registry(dbname)
-        elif odoo_version == 18 and is_sass:  # multi DB returned for sass~18.2
+        elif odoo_version == 18 and is_saas:  # multi DB returned for sass~18.2
             registry = odoo.modules.registry.Registry(dbname[0])
         else:
             # Since 19, odoo supports multi databases and it now returns
