@@ -1,11 +1,9 @@
 # Copyright 2016-2017 Camptocamp SA
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl)
-import os
-
-import unicodecsv as csv
+import csv
+from pathlib import Path
 
 from ..exceptions import AnthemError
-from . import modules
 from .records import switch_company
 
 
@@ -22,7 +20,7 @@ def load_model_csv(ctx, path):
             load_model_csv(ctx, 'res.partner.csv')
 
     """
-    model = os.path.splitext(os.path.basename(path))[0]
+    model = Path(path).stem
     load_csv(ctx, model, path)
 
 
@@ -86,38 +84,37 @@ def load_csv(ctx, model, path, header=None, header_exclude=None, **fmtparams):
         or set `--odoo-data-path` option.
     :param header: whitelist of CSV columns to load
     :param header_exclude: blacklist of CSV columns to not load
-    :param fmtparams: keyword params for `csv_unireader`
+    :param fmtparams: keyword params for `csv.reader`
 
     Usage example::
 
-      from pkg_resources import Requirement, resource_string
+      from importlib import resources
 
-      req = Requirement.parse('my-project')
       load_csv(ctx, ctx.env['res.users'],
-               resource_string(req, 'data/users.csv'),
+               resources.files('my-project') / 'data' / 'users.csv',
                delimiter=',')
 
     """
-    if not os.path.isabs(path):
-        if ctx.options.odoo_data_path:
-            path = os.path.join(ctx.options.odoo_data_path, path)
-        else:
+    path = Path(path)
+    if not path.is_absolute():
+        if not ctx.options.odoo_data_path:
             raise AnthemError(
                 "Got a relative path. "
                 "Please, provide a value for `ODOO_DATA_PATH` "
                 "in your environment or set `--odoo-data-path` option."
             )
+        path = ctx.options.odoo_data_path / path
 
-    with open(path, "rb") as data:
+    with path.open() as fcsv:
         load_csv_stream(
-            ctx, model, data, header=header, header_exclude=header_exclude, **fmtparams
+            ctx, model, fcsv, header=header, header_exclude=header_exclude, **fmtparams
         )
 
 
 def read_csv(data, dialect="excel", encoding="utf-8", **fmtparams):
-    rows = csv.reader(data, encoding=encoding, **fmtparams)
-    header = next(rows)
-    return header, rows
+    rows_iterator = csv.reader(data, **fmtparams)
+    header = next(rows_iterator)
+    return header, rows_iterator
 
 
 def load_rows(ctx, model, header, rows):
@@ -129,13 +126,11 @@ def load_rows(ctx, model, header, rows):
     result = model.load(header, rows)
     ids = result["ids"]
     if not ids:
-        messages = "\n".join("- %s" % msg for msg in result["messages"])
-        ctx.log_line(
-            "Failed to load CSV " "in '%s'. Details:\n%s" % (model._name, messages)
-        )
+        messages = "\n".join(f"- {msg}" for msg in result["messages"])
+        ctx.log_line(f"Failed to load CSV in '{model._name}'. Details:\n{messages}")
         raise AnthemError("Could not import CSV. See the logs")
     else:
-        ctx.log_line("Imported %d records in '%s'" % (len(ids), model._name))
+        ctx.log_line(f"Imported {len(ids)} records in '{model._name}'")
 
 
 def load_csv_stream(ctx, model, data, header=None, header_exclude=None, **fmtparams):
@@ -149,12 +144,10 @@ def load_csv_stream(ctx, model, data, header=None, header_exclude=None, **fmtpar
 
     Usage example::
 
-      from pkg_resources import Requirement, resource_stream
+      from importlib import resources
 
-      req = Requirement.parse('my-project')
-      load_csv_stream(ctx, ctx.env['res.users'],
-                      resource_stream(req, 'data/users.csv'),
-                      delimiter=',')
+      with (resources.files('my-project') / 'data' / 'users.csv').open() as fp
+          load_csv_stream(ctx, ctx.env['res.users'], fp, delimiter=',')
     """
     _header, _rows = read_csv(data, **fmtparams)
     header = header if header else _header
@@ -176,15 +169,3 @@ def load_csv_stream(ctx, model, data, header=None, header_exclude=None, **fmtpar
             rows = list(_rows)
         if rows:
             load_rows(ctx, model, header, rows)
-
-
-def update_translations(ctx, module_list):
-    """Update translations from module list
-
-    :param module_list: a list of modules
-    """
-    modules.update_translations(ctx, module_list)
-    ctx.log_line(
-        "Deprecated: use anthem.lyrics.modules.update_translations"
-        "instead of anthem.lyrics.loaders.update_translations"
-    )
